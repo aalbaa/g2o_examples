@@ -5,12 +5,10 @@ using namespace Eigen;
 namespace g2o {
   namespace example {
 
-    EdgeR2R2::EdgeR2R2() :
-      BaseBinaryEdge<2, Vector2d, VertexR2, VertexR2>()      
-    {
-      // resizeParameters(1);
-      // installParameter(_sensorOffset, 0);
-    }
+    // EdgeR2R2::EdgeR2R2() :
+    //   BaseBinaryEdge<2, Vector2d, VertexR2, VertexR2>()
+    // {
+    // }
 
     bool EdgeR2R2::read(std::istream& is)
     {
@@ -36,19 +34,25 @@ namespace g2o {
 
     void EdgeR2R2::computeError()
     {
+      if(!(_sys_A_initialized && _sys_B_initialized)){
+        std::cout << "Missing A and B matrices" << std::endl;
+        return;
+      }
+      
       const VertexR2* l1 = static_cast<const VertexR2*>(_vertices[0]);
       const VertexR2* l2 = static_cast<const VertexR2*>(_vertices[1]);
       // _error = (_sensorCache->w2n() * l2->estimate()) - _measurement;
-      _error = l2 -> estimate() - l1 -> estimate();
+      _error = l2 -> estimate() - _sys_A * ( l1 -> estimate()) - _sys_B * _odom_meas;
     }
 
-    // bool VertexR2::resolveCaches()
-    // {
-    //   ParameterVector pv(1);
-    //   pv[0] = _sensorOffset;
-    //   resolveCache(_sensorCache, static_cast<OptimizableGraph::Vertex*>(_vertices[0]), "TUTORIAL_CACHE_SE2_OFFSET", pv);
-    //   return _sensorCache != 0;
-    // }
-
+    // I do not understand what this function is supposed to do. But without it, I cannot create EdgeR2R2 instances on the heap.
+    bool EdgeR2R2::resolveCaches()
+    {
+      // ParameterVector pv(1);
+      // pv[0] = _sensorOffset;
+      // resolveCache(_sensorCache, static_cast<OptimizableGraph::Vertex*>(_vertices[0]), "TUTORIAL_CACHE_SE2_OFFSET", pv);
+      // return _sensorCache != 0;
+      return true;
+    }
   } // end namespace
 } // end namespace
