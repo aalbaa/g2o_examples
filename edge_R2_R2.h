@@ -25,7 +25,7 @@ namespace g2o {
 
       public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
-        EdgeR2R2(){};
+        EdgeR2R2();
 
         void computeError();
   
@@ -49,10 +49,40 @@ namespace g2o {
         }
       
         // Set odometry measurement
-        void setMeasurement(const double& m){
-          _odom_meas = m;
-          _measurement[0] = m;
+        void setMeasurement(const Eigen::Vector2d& m){
+          // _odom_meas = m;
+          // _measurement[0] = m;
+          // _measurement[1] = 0.;
+          _measurement = m;
         }
+
+        virtual bool setMeasurementData(const number_t* d){
+
+          _measurement=Vector2(d[0], d[1]);
+          return true;
+        }
+
+        virtual bool getMeasurementData(number_t* d) const {
+          Eigen::Map<Eigen::Vector2d> m(d);
+          m = _measurement;
+          return true;
+        }
+
+        virtual int measurementDimension() const {return 2;}
+
+        virtual bool setMeasurementFromState() {
+          const VertexR2* v1 = static_cast<const VertexR2*>(_vertices[0]);
+          const VertexR2* v2 = static_cast<const VertexR2*>(_vertices[1]);
+          _measurement = v2->estimate()- _sys_A * (v1->estimate());
+          return true;
+        }
+        
+        virtual number_t initialEstimatePossible(const  OptimizableGraph::VertexSet& , OptimizableGraph::Vertex* ) { return 0;}
+
+      // #ifndef NUMERIC_JACOBIAN_TWO_D_TYPES
+      //       virtual void linearizeOplus();
+      // #endif
+
 
       // Set measurements
       protected:

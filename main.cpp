@@ -94,7 +94,7 @@ int main()
     odometry->set_matrices_AB( sys_A, sys_B);
     odometry->vertices()[0] = optimizer.vertex( i);
     odometry->vertices()[1] = optimizer.vertex( i + 1);
-    odometry->setMeasurement( odom_arr[i]);
+    odometry->setMeasurement( Eigen::Vector2d(odom_arr[i], 0.));
     odometry->setInformation(Eigen::Matrix2d::Identity());
     optimizer.addEdge(odometry);
   }
