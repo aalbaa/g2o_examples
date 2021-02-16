@@ -28,6 +28,10 @@ target_link_libraries(example_slam_R2_library
   Eigen3::Eigen
 )
 
+# if(G2O_HAVE_OPENGL)
+#   target_link_libraries(example_slam_R2_library opengl_helper ${OPENGL_gl_LIBRARY} )
+# endif()
+
 add_executable(example_slam_R2
   main.cpp
 )

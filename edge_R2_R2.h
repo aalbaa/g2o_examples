@@ -51,6 +51,7 @@ namespace g2o {
         // Set odometry measurement
         void setMeasurement(const double& m){
           _odom_meas = m;
+          _measurement[0] = m;
         }
 
       // Set measurements

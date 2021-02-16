@@ -80,7 +80,7 @@ int main()
   for (int i = 0; i < num_poses; ++i) {
     VertexR2* pose =  new VertexR2;
     pose->setId(i);
-    // pose->setEstimate(Eigen::Vector2d::Random());
+    pose->setEstimate(Eigen::Vector2d::Random());
     optimizer.addVertex(pose);
   }
   cerr << "done." << endl;
@@ -123,7 +123,7 @@ int main()
 
   // Output estiamtes
   for( int i = 0; i < num_poses; i++){
-    std::cout << optimizer.vertex( i)->estimateDimension() << std::endl;
+    std::cout << optimizer.vertex( i) << std::endl;
   }
   // freeing the graph memory
   optimizer.clear();
