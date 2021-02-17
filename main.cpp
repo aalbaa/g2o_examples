@@ -79,9 +79,9 @@ int main()
   cerr << "Optimization: Adding robot poses ... ";
   for (int i = 0; i < num_poses; ++i) {
     VertexR2* pose =  new VertexR2;
-    pose->setId(i);
-    pose->setEstimate(Eigen::Vector2d::Random());
-    optimizer.addVertex(pose);
+    pose->setId( i);
+    pose->setEstimate( Eigen::Vector2d(0., 0.));
+    optimizer.addVertex( pose);
   }
   cerr << "done." << endl;
 

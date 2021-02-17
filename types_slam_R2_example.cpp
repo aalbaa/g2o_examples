@@ -12,7 +12,6 @@ namespace g2o {
   
   G2O_REGISTER_TYPE(EXAMPLE_VERTEX_R2, VertexR2);
 
-//   G2O_REGISTER_TYPE(TUTORIAL_EDGE_SE2, EdgeSE2);
   G2O_REGISTER_TYPE(EXAMPLE_EDGE_R2_R2, EdgeR2R2);
   }
 } // end namespace
