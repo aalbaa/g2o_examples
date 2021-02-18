@@ -24,11 +24,21 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef G2O_TYPES_TUTORIAL_SLAM2D_
-#define G2O_TYPES_TUTORIAL_SLAM2D_
+#include "types_tutorial_slam_R2.h"
 
-#include "vertex_R2.h"
+#include "g2o/core/factory.h"
+#include "g2o/stuff/macros.h"
 
-#include "edge_R2.h"
 
-#endif
+#include <iostream>
+
+namespace g2o {
+  namespace tutorial {
+
+  G2O_REGISTER_TYPE_GROUP(tutorial_slam2d);
+
+  G2O_REGISTER_TYPE(TUTORIAL_VERTEX_R2, VertexR2);
+
+  G2O_REGISTER_TYPE(TUTORIAL_EDGE_R2, EdgeR2);
+  }
+} // end namespace

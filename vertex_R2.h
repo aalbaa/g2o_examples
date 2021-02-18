@@ -29,7 +29,7 @@
 
 #include "g2o/core/base_vertex.h"
 #include "g2o/core/hyper_graph_action.h"
-#include "g2o_tutorial_slam2d_api.h"
+#include "g2o_tutorial_slam_R2_api.h"
 
 namespace g2o {
   namespace tutorial {
@@ -37,7 +37,7 @@ namespace g2o {
     /**
      * R^2 vertex
      */
-    class G2O_TUTORIAL_SLAM2D_API VertexR2 : public BaseVertex<2, Vector2>
+    class G2O_TUTORIAL_SLAM_R2_API VertexR2 : public BaseVertex<2, Vector2>
     {
       public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW;

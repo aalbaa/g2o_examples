@@ -29,7 +29,7 @@
 
 #include "vertex_R2.h"
 #include "edge_R2.h"
-#include "types_tutorial_slam2d.h"
+#include "types_tutorial_slam_R2.h"
 
 #include "g2o/core/sparse_optimizer.h"
 #include "g2o/core/block_solver.h"
@@ -68,9 +68,6 @@ int main()
   // first adding all the vertices
   cerr << "Optimization: Adding robot poses ... ";
   for (size_t i = 0; i < numPoses; ++i) {
-    // VertexSE2* robot =  new VertexSE2;
-    // robot->setId(i);
-    // robot->setEstimate( SE2(1., 0., 0.));
     VertexR2* robot =  new VertexR2;
     robot->setId(i);
     robot->setEstimate( Vector2(0, 0));

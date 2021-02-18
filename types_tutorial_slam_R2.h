@@ -1,5 +1,5 @@
 // g2o - General Graph Optimization
-// Copyright (C) 2011 R. Kuemmerle, G. Grisetti, H. Strasdat, W. Burgard
+// Copyright (C) 2011 R. Kuemmerle, G. Grisetti, W. Burgard
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -24,35 +24,11 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-/***************************************************************************
- *  Description: import/export macros for creating DLLS with Microsoft
- *	compiler. Any exported function needs to be declared with the
- *  appropriate G2O_XXXX_API macro. Also, there must be separate macros
- *  for each DLL (arrrrrgh!!!)
- *
- *  17 Jan 2012
- *  Email: pupilli@cs.bris.ac.uk
- ****************************************************************************/
-#ifndef G2O_TUTORIAL_SLAM2D_API_H
-#define G2O_TUTORIAL_SLAM2D_API_H
+#ifndef G2O_TYPES_TUTORIAL_SLAM_R2_
+#define G2O_TYPES_TUTORIAL_SLAM_R2_
 
-#include "g2o/config.h"
+#include "vertex_R2.h"
 
-#ifdef _MSC_VER
-// We are using a Microsoft compiler:
-#ifdef G2O_SHARED_LIBS
-#ifdef tutorial_slam2d_library_EXPORTS
-#define G2O_TUTORIAL_SLAM2D_API __declspec(dllexport)
-#else
-#define G2O_TUTORIAL_SLAM2D_API __declspec(dllimport)
-#endif
-#else
-#define G2O_TUTORIAL_SLAM2D_API
-#endif
-
-#else
-// Not Microsoft compiler so set empty definition:
-#define G2O_TUTORIAL_SLAM2D_API
-#endif
+#include "edge_R2.h"
 
 #endif
