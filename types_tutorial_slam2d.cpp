@@ -24,43 +24,21 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef G2O_TUTORIAL_VERTEX_R2_H
-#define G2O_TUTORIAL_VERTEX_R2_H
+#include "types_tutorial_slam2d.h"
 
-#include "g2o/core/base_vertex.h"
-#include "g2o/core/hyper_graph_action.h"
-#include "g2o_tutorial_slam2d_api.h"
+#include "g2o/core/factory.h"
+#include "g2o/stuff/macros.h"
+
+
+#include <iostream>
 
 namespace g2o {
   namespace tutorial {
 
-    /**
-     * R^2 vertex
-     */
-    class G2O_TUTORIAL_SLAM2D_API VertexR2 : public BaseVertex<2, Vector2>
-    {
-      public:
-        EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
-        VertexR2();
+  G2O_REGISTER_TYPE_GROUP(tutorial_slam2d);
 
-        virtual void setToOriginImpl() {
-        //   _estimate= Vector2::setZero();
-            _estimate = Vector2( 0., 0.);
-        }
+  G2O_REGISTER_TYPE(TUTORIAL_VERTEX_R2, VertexR2);
 
-        virtual void oplusImpl(const double* update)
-        {
-          _estimate += Vector2( update[0], update[1]);
-          // SE2 up(update[0], update[1], update[2]);
-          // _estimate *= up;
-        }
-
-        virtual bool read(std::istream& is);
-        virtual bool write(std::ostream& os) const;
-
-    };
-
-  } // end namespace
+  G2O_REGISTER_TYPE(TUTORIAL_EDGE_R2, EdgeR2);
+  }
 } // end namespace
-
-#endif

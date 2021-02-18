@@ -24,43 +24,52 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef G2O_TUTORIAL_VERTEX_R2_H
-#define G2O_TUTORIAL_VERTEX_R2_H
+#include "edge_R2.h"
 
-#include "g2o/core/base_vertex.h"
-#include "g2o/core/hyper_graph_action.h"
-#include "g2o_tutorial_slam2d_api.h"
+using namespace Eigen;
 
 namespace g2o {
   namespace tutorial {
 
-    /**
-     * R^2 vertex
-     */
-    class G2O_TUTORIAL_SLAM2D_API VertexR2 : public BaseVertex<2, Vector2>
+    EdgeR2::EdgeR2() :
+      BaseBinaryEdge<2, Vector2, VertexR2, VertexR2>()
     {
-      public:
-        EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
-        VertexR2();
+        // Set up the system matrices
+        A(0, 0) = 0;
+        A(0, 1) = 1;
+        A(1, 0) = -1;
+        A(1, 1) = -1;
 
-        virtual void setToOriginImpl() {
-        //   _estimate= Vector2::setZero();
-            _estimate = Vector2( 0., 0.);
+        B(0, 0) = 0;
+        B(0, 1) = 0;
+        B(1, 0) = 1;
+        B(1, 1) = 0;
+    }
+
+    bool EdgeR2::read(std::istream& is)
+    {
+      Vector2d p;
+      is >> p[0] >> p[1];
+      _measurement = p;
+      _inverseMeasurement = measurement().inverse();
+      for (int i = 0; i < 2; ++i)
+        for (int j = i; j < 2; ++j) {
+          is >> information()(i, j);
+          if (i != j)
+            information()(j, i) = information()(i, j);
         }
+      return true;
+    }
 
-        virtual void oplusImpl(const double* update)
-        {
-          _estimate += Vector2( update[0], update[1]);
-          // SE2 up(update[0], update[1], update[2]);
-          // _estimate *= up;
-        }
-
-        virtual bool read(std::istream& is);
-        virtual bool write(std::ostream& os) const;
-
-    };
-
+    bool EdgeR2::write(std::ostream& os) const
+    {
+      Vector2d p = measurement();
+      os << p[0] << " " << p[1];
+    //   os << p.x() << " " << p.y() << " " << p.z();
+      for (int i = 0; i < 2; ++i)
+        for (int j = i; j < 2; ++j)
+          os << " " << information()(i, j);
+      return os.good();
+    }
   } // end namespace
 } // end namespace
-
-#endif

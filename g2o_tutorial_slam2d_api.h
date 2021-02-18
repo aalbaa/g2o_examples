@@ -1,5 +1,5 @@
 // g2o - General Graph Optimization
-// Copyright (C) 2011 R. Kuemmerle, G. Grisetti, W. Burgard
+// Copyright (C) 2011 R. Kuemmerle, G. Grisetti, H. Strasdat, W. Burgard
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -24,43 +24,35 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef G2O_TUTORIAL_VERTEX_R2_H
-#define G2O_TUTORIAL_VERTEX_R2_H
+/***************************************************************************
+ *  Description: import/export macros for creating DLLS with Microsoft
+ *	compiler. Any exported function needs to be declared with the
+ *  appropriate G2O_XXXX_API macro. Also, there must be separate macros
+ *  for each DLL (arrrrrgh!!!)
+ *
+ *  17 Jan 2012
+ *  Email: pupilli@cs.bris.ac.uk
+ ****************************************************************************/
+#ifndef G2O_TUTORIAL_SLAM2D_API_H
+#define G2O_TUTORIAL_SLAM2D_API_H
 
-#include "g2o/core/base_vertex.h"
-#include "g2o/core/hyper_graph_action.h"
-#include "g2o_tutorial_slam2d_api.h"
+#include "g2o/config.h"
 
-namespace g2o {
-  namespace tutorial {
+#ifdef _MSC_VER
+// We are using a Microsoft compiler:
+#ifdef G2O_SHARED_LIBS
+#ifdef tutorial_slam2d_library_EXPORTS
+#define G2O_TUTORIAL_SLAM2D_API __declspec(dllexport)
+#else
+#define G2O_TUTORIAL_SLAM2D_API __declspec(dllimport)
+#endif
+#else
+#define G2O_TUTORIAL_SLAM2D_API
+#endif
 
-    /**
-     * R^2 vertex
-     */
-    class G2O_TUTORIAL_SLAM2D_API VertexR2 : public BaseVertex<2, Vector2>
-    {
-      public:
-        EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
-        VertexR2();
-
-        virtual void setToOriginImpl() {
-        //   _estimate= Vector2::setZero();
-            _estimate = Vector2( 0., 0.);
-        }
-
-        virtual void oplusImpl(const double* update)
-        {
-          _estimate += Vector2( update[0], update[1]);
-          // SE2 up(update[0], update[1], update[2]);
-          // _estimate *= up;
-        }
-
-        virtual bool read(std::istream& is);
-        virtual bool write(std::ostream& os) const;
-
-    };
-
-  } // end namespace
-} // end namespace
+#else
+// Not Microsoft compiler so set empty definition:
+#define G2O_TUTORIAL_SLAM2D_API
+#endif
 
 #endif
