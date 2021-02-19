@@ -1,28 +1,8 @@
-// g2o - General Graph Optimization
-// Copyright (C) 2011 R. Kuemmerle, G. Grisetti, W. Burgard
-// All rights reserved.
+// 2D linear batch optimization on a mass-spring-damper sysetm.
+//  Note that most of the source code is inherited from g2o's examples.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// * Redistributions of source code must retain the above copyright notice,
-//   this list of conditions and the following disclaimer.
-// * Redistributions in binary form must reproduce the above copyright
-//   notice, this list of conditions and the following disclaimer in the
-//   documentation and/or other materials provided with the distribution.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-// IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-// TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-// PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-// TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//  Amro Al Baali
+//  18-Feb-2021
 
 #include <iostream>
 #include <cmath>
@@ -47,6 +27,24 @@ int main()
   int numPoses = 10;
   int numLandmarks = 1;
   int numNodes = numPoses + numLandmarks;
+  // Create system matrix
+  //  mass
+  double sys_mass  = 1;
+  double sys_damp  = 1;
+  double sys_sprng = 1;
+  
+  Eigen::Matrix2d sys_A;
+  sys_A(0, 0) = 0;
+  sys_A(0, 1) = 1;
+  sys_A(1, 0) = - sys_sprng / sys_mass;
+  sys_A(1, 1) = - sys_damp / sys_mass;
+
+  // Input matrix
+  Eigen::Matrix2d sys_B;
+  sys_B(0, 0) = 0;
+  sys_B(0, 1) = 0;
+  sys_B(1, 0) = 1;
+  sys_B(1, 1) = 0;
 
   /*********************************************************************************
    * creating the optimization problem
@@ -80,6 +78,11 @@ int main()
   for (size_t i = 0; i < numPoses - 1; ++i) {
     // EdgeSE2* odometry = new EdgeSE2;
     EdgeR2* odometry = new EdgeR2;
+    odometry->setMatrix_A( sys_A);
+    odometry->setMatrix_B( sys_B);
+
+    std::cout << "\nTest: _sys_A:\n" << odometry->getMatrix_A();
+    std::cout << "\t_sys_B:\n" << odometry->getMatrix_B() << std::endl;
     odometry->vertices()[0] = optimizer.vertex( i);
     odometry->vertices()[1] = optimizer.vertex( i + 1);
     // odometry->setMeasurement( SE2(1.0, 0., 0.));

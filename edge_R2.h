@@ -1,28 +1,5 @@
-// g2o - General Graph Optimization
-// Copyright (C) 2011 R. Kuemmerle, G. Grisetti, W. Burgard
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// * Redistributions of source code must retain the above copyright notice,
-//   this list of conditions and the following disclaimer.
-// * Redistributions in binary form must reproduce the above copyright
-//   notice, this list of conditions and the following disclaimer in the
-//   documentation and/or other materials provided with the distribution.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-// IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-// TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-// PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-// TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Error function is linear and is the form
+//    x_k = A * x_km1 + B * u_km1
 
 #ifndef G2O_TUTORIAL_EDGE_R2_H
 #define G2O_TUTORIAL_EDGE_R2_H
@@ -43,14 +20,13 @@ namespace g2o {
       public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
         EdgeR2();
+        // Constructor that takes the system matrices
+        EdgeR2(const Eigen::Matrix2d, const Eigen::MatrixXd);
+        // Destructor
+        ~EdgeR2();
 
-        void computeError()
-        {
-          const VertexR2* v2 = static_cast<const VertexR2*>(_vertices[1]);
-          const VertexR2* v1 = static_cast<const VertexR2*>(_vertices[0]);
-          _error = v2->estimate() - ( A * v1->estimate() + B * this->_measurement);
-        }
-  
+        void computeError();
+        
         void setMeasurement(const Vector2& m){
           _measurement = m;
           _inverseMeasurement = -m;
@@ -59,15 +35,30 @@ namespace g2o {
         virtual bool read(std::istream& is);
         virtual bool write(std::ostream& os) const;
 
+        // Function to set the A matrix
+        void setMatrix_A(const Eigen::Matrix2d& A_in);
+
+        Eigen::Matrix2d getMatrix_A(){ return _sys_A;};
+        Eigen::MatrixXd getMatrix_B(){ return _sys_B;};
+
+        // Function to set the B matrix
+        void setMatrix_B(const Eigen::MatrixXd& B_in);        
+
       protected:
         Vector2 _inverseMeasurement;
-        // System matrix
-        Eigen::Matrix2d A;
-        Eigen::Matrix2d B;
+        
+        // System matrices
+        Eigen::Matrix2d _sys_A;
+        Eigen::MatrixXd _sys_B;
+
+        // Boolean variables to specify whether a matrix is defined or not
+        bool _sys_A_defined;
+        bool _sys_B_defined;
+
+        // Boolean to specify whether the system matrices were defined internally (in order to cealn them)
+        bool _sys_A_isInternal = false;
+        bool _sys_B_isInternal = false;
     };
-
   }
-
 } // end namespace
-
 #endif

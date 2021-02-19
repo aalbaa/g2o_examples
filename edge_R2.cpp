@@ -34,18 +34,37 @@ namespace g2o {
     EdgeR2::EdgeR2() :
       BaseBinaryEdge<2, Vector2, VertexR2, VertexR2>()
     {
-        // Set up the system matrices
-        A(0, 0) = 0;
-        A(0, 1) = 1;
-        A(1, 0) = -1;
-        A(1, 1) = -1;
-
-        B(0, 0) = 0;
-        B(0, 1) = 0;
-        B(1, 0) = 1;
-        B(1, 1) = 0;
     }
 
+    EdgeR2::EdgeR2(const Eigen::Matrix2d A, const Eigen::MatrixXd B){
+        setMatrix_A( A);
+        setMatrix_B( B);
+    }
+
+    EdgeR2::~EdgeR2(){
+      // TODO: Clean memroy from the heap.
+      // // Clean memory if needed
+      // if( _sys_A_isInternal){     
+      //   Eigen::Matrix2d* A = &_sys_A;   
+      //   delete A;
+      // }
+      // if( _sys_B_isInternal){
+      //   delete &_sys_B;
+      // }
+
+    }
+    void EdgeR2::computeError(){
+      // Check whether matrices are defined or not
+      if( !_sys_A_defined){
+        throw "Missing _sys_A definition";
+      }
+      if( !_sys_B_defined){
+        throw "Missing _sys_B definition";
+      }
+      const VertexR2* v2 = static_cast<const VertexR2*>(_vertices[1]);
+      const VertexR2* v1 = static_cast<const VertexR2*>(_vertices[0]);
+      _error = v2->estimate() - ( _sys_A * v1->estimate() + _sys_B * this->_measurement);
+    }
     bool EdgeR2::read(std::istream& is)
     {
       Vector2d p;
@@ -70,6 +89,19 @@ namespace g2o {
         for (int j = i; j < 2; ++j)
           os << " " << information()(i, j);
       return os.good();
+    }
+
+    // Set system matrix
+    void EdgeR2::setMatrix_A(const Eigen::Matrix2d& A_in){
+      // Set the matrix to the reference
+      _sys_A = A_in;
+      _sys_A_defined = true;
+    }
+    // Set matrix B
+    void EdgeR2::setMatrix_B(const Eigen::MatrixXd& B_in){
+      // Set the matrix to the reference
+      _sys_B = B_in;
+      _sys_B_defined = true;
     }
   } // end namespace
 } // end namespace
