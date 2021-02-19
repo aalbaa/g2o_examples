@@ -36,7 +36,7 @@ namespace g2o {
     {
     }
 
-    EdgeR2::EdgeR2(const Eigen::Matrix2d A, const Eigen::MatrixXd B){
+    EdgeR2::EdgeR2(const Eigen::Matrix2d A, const Eigen::Matrix2d B){
         setMatrix_A( A);
         setMatrix_B( B);
     }
@@ -55,12 +55,12 @@ namespace g2o {
     }
     void EdgeR2::computeError(){
       // Check whether matrices are defined or not
-      if( !_sys_A_defined){
-        throw "Missing _sys_A definition";
-      }
-      if( !_sys_B_defined){
-        throw "Missing _sys_B definition";
-      }
+      // if( !_sys_A_defined){
+      //   throw "Missing _sys_A definition";
+      // }
+      // if( !_sys_B_defined){
+      //   throw "Missing _sys_B definition";
+      // }
       const VertexR2* v2 = static_cast<const VertexR2*>(_vertices[1]);
       const VertexR2* v1 = static_cast<const VertexR2*>(_vertices[0]);
       _error = v2->estimate() - ( _sys_A * v1->estimate() + _sys_B * this->_measurement);
@@ -98,7 +98,7 @@ namespace g2o {
       _sys_A_defined = true;
     }
     // Set matrix B
-    void EdgeR2::setMatrix_B(const Eigen::MatrixXd& B_in){
+    void EdgeR2::setMatrix_B(const Eigen::Matrix2d& B_in){
       // Set the matrix to the reference
       _sys_B = B_in;
       _sys_B_defined = true;

@@ -80,9 +80,7 @@ int main()
     EdgeR2* odometry = new EdgeR2;
     odometry->setMatrix_A( sys_A);
     odometry->setMatrix_B( sys_B);
-
-    std::cout << "\nTest: _sys_A:\n" << odometry->getMatrix_A();
-    std::cout << "\t_sys_B:\n" << odometry->getMatrix_B() << std::endl;
+    
     odometry->vertices()[0] = optimizer.vertex( i);
     odometry->vertices()[1] = optimizer.vertex( i + 1);
     // odometry->setMeasurement( SE2(1.0, 0., 0.));
@@ -97,14 +95,16 @@ int main()
   // Add loop closure edge
   // EdgeSE2* lc = new EdgeSE2;
   EdgeR2* lc = new EdgeR2;
+  lc->setMatrix_A( Eigen::Matrix2d::Identity());
+  lc->setMatrix_B( Eigen::Matrix2d::Identity());
   lc->vertices()[0] = optimizer.vertex( 0);
   lc->vertices()[1] = optimizer.vertex( numPoses - 1);
   // lc->setMeasurement( SE2( numPoses - 1 + 0.1, 0., 0.));
-  lc->setMeasurement( Vector2( numPoses - 1 + 0.1, 0.));
+  lc->setMeasurement( Vector2( 10, 0.));
   lc->setInformation( 0.1 * Eigen::Matrix2d::Identity());
   optimizer.addEdge( lc);
 
-  cerr << "done." << endl;
+  // cerr << "done." << endl;
   /*********************************************************************************
    * optimization
    ********************************************************************************/

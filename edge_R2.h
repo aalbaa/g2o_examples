@@ -21,7 +21,7 @@ namespace g2o {
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
         EdgeR2();
         // Constructor that takes the system matrices
-        EdgeR2(const Eigen::Matrix2d, const Eigen::MatrixXd);
+        EdgeR2(const Eigen::Matrix2d, const Eigen::Matrix2d);
         // Destructor
         ~EdgeR2();
 
@@ -42,14 +42,14 @@ namespace g2o {
         Eigen::MatrixXd getMatrix_B(){ return _sys_B;};
 
         // Function to set the B matrix
-        void setMatrix_B(const Eigen::MatrixXd& B_in);        
+        void setMatrix_B(const Eigen::Matrix2d& B_in);        
 
       protected:
         Vector2 _inverseMeasurement;
         
         // System matrices
         Eigen::Matrix2d _sys_A;
-        Eigen::MatrixXd _sys_B;
+        Eigen::Matrix2d _sys_B;
 
         // Boolean variables to specify whether a matrix is defined or not
         bool _sys_A_defined;
