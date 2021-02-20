@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 project( tutorial_slam_R2)
+
 set(G2O_DIR /home/aalbaali/Documents/Code_base/External/cxx/g2o)
 list( APPEND CMAKE_MODULE_PATH ${G2O_DIR}/cmake_modules )
 set (G2O_ROOT  G2O_DIR)
