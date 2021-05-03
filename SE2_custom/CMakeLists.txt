@@ -12,7 +12,7 @@ find_package(Eigen3)
 
 # Add the SE2 library
 add_library(example_se2_lib STATIC
-            edge_se2R2.cpp edge_se2R2.h edge_se2se2.cpp edge_se2se2.h vertex_se2.cpp vertex_se2.h)
+            b_edge_se2se2.cpp b_edge_se2se2.h vertex_se2.cpp vertex_se2.h)
 
 # Link the InEKF::SE2 in order to use the definitions in the header            
 target_link_libraries(example_se2_lib

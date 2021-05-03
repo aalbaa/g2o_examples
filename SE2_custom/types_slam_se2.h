@@ -2,5 +2,6 @@
 #define G2O_TYPES_SLAM_SE2_H
 
 #include "vertex_se2.h"
+#include "b_edge_se2se2.h"
 
 #endif

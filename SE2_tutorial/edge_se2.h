@@ -38,6 +38,7 @@ namespace g2o {
     /**
      * \brief 2D edge between two Vertex2, i.e., the odometry
      */
+    // BaseBinaryEdge< dimension = 3, measurementType = SE2, vertex_1_type = VertexSE2, vertex_2_type = VertexSE2>
     class G2O_TUTORIAL_SLAM2D_API EdgeSE2 : public BaseBinaryEdge<3, SE2, VertexSE2, VertexSE2>
     {
       public:

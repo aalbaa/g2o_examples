@@ -1,6 +1,9 @@
 #include <iostream>
+
 #include "inekf_se2.h"
-#include "types_slam_se2.h"
+
+#include "vertex_se2.h"
+#include "b_edge_se2se2.h"
 
 int main(int argc, const char* argv[]){
     // Read config.yml. Specify the arguments in the settings.json file. For example,
@@ -60,16 +63,39 @@ int main(int argc, const char* argv[]){
 
     // ********************************************************
     // Trying custom g2o types
-    g2o::SE2::VertexSE2* X = new g2o::SE2::VertexSE2;
+    g2o::SE2::VertexSE2* X1 = new g2o::SE2::VertexSE2;
     const double dx[3] = {1.0, 2.0, 0.0};
-    X->setId(1);
-    X->setEstimate( Pose( 1, 2, M_PI/4));
-    X->oplus( dx);
-    std::cout << X->estimate().log().coeffs() << std::endl;
-    X->setTime( 2.3);
-    std::cout << X->time() << std::endl;
-    delete X;
+    X1->setId(1);
+    X1->setEstimate( Pose( 0, 0, 0));
+    // X1->oplus( dx);
+    std::cout << X1->estimate().log().coeffs() << std::endl;
+    X1->setTime( 0.0);
+    std::cout << X1->time() << std::endl;
+    
+    g2o::SE2::VertexSE2* X2 = new g2o::SE2::VertexSE2;    
+    X2->setId(2);
+    X2->setEstimate( Pose( 1 + 0.1, 2 - 0.1, M_PI/4 + 0.01));
+    std::cout << X2->estimate().log().coeffs() << std::endl;
+    X2->setTime( 0.1);
+    std::cout << X2->time() << std::endl;
     // std::cout << "X: " << X << std::endl;
+
+    // Trying the custom SE2 <-> SE2 edge
+    g2o::SE2::BEdgeSE2SE2* odometry = new g2o::SE2::BEdgeSE2SE2;
+    odometry->vertices()[0] = X1;
+    odometry->vertices()[1] = X2;
+    // Set sampling period
+    odometry->setDt( 0.1);
+    // Set measurement
+    odometry->setMeasurement(g2o::Vector3(1, 2, M_PI/4));
+    odometry->setInformation(CovPose::Identity());
+    std::cout << odometry->measurement() << std::endl;
+    
+    std::cout << odometry->information() << std::endl;
+
+    odometry->computeError();
+    std::cout << odometry->error() << std::endl;
+
 
     // RV::IO::write( X_hat, filename_kf, "X");
 }

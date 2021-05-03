@@ -7,6 +7,12 @@
     "files.associations": {
         "core": "cpp",
         "*.tcc": "cpp",
-        "optional": "cpp"
+        "optional": "cpp",
+        "iosfwd": "cpp",
+        "fstream": "cpp",
+        "istream": "cpp",
+        "limits": "cpp",
+        "sstream": "cpp",
+        "streambuf": "cpp"
     }
 }
