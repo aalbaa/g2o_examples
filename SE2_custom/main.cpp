@@ -1,5 +1,6 @@
 #include <iostream>
 #include "inekf_se2.h"
+#include "types_slam_se2.h"
 
 int main(int argc, const char* argv[]){
     // Read config.yml. Specify the arguments in the settings.json file. For example,
@@ -56,6 +57,19 @@ int main(int argc, const char* argv[]){
             meas_vel,
             meas_gps
             );
+
+    // ********************************************************
+    // Trying custom g2o types
+    g2o::SE2::VertexSE2* X = new g2o::SE2::VertexSE2;
+    const double dx[3] = {1.0, 2.0, 0.0};
+    X->setId(1);
+    X->setEstimate( Pose( 1, 2, M_PI/4));
+    X->oplus( dx);
+    std::cout << X->estimate().log().coeffs() << std::endl;
+    X->setTime( 2.3);
+    std::cout << X->time() << std::endl;
+    delete X;
+    // std::cout << "X: " << X << std::endl;
 
     // RV::IO::write( X_hat, filename_kf, "X");
 }
