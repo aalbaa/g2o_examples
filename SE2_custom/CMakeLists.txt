@@ -18,7 +18,7 @@ add_library(example_se2_lib STATIC
 target_link_libraries(example_se2_lib
     PUBLIC
     InEKF::SE2 MANIF::manif
-    g2o::core g2o::stuff g2o::solver_eigen    
+    g2o::core g2o::stuff g2o::solver_eigen g2o::solver_csparse g2o::csparse_extension
 )        
 
 

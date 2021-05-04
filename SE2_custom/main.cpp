@@ -5,6 +5,13 @@
 #include "vertex_se2.h"
 #include "b_edge_se2se2.h"
 
+#include "g2o/core/sparse_optimizer.h"
+#include "g2o/core/block_solver.h"
+#include "g2o/core/factory.h"
+#include "g2o/core/optimization_algorithm_factory.h"
+#include "g2o/core/optimization_algorithm_gauss_newton.h"
+#include "g2o/solvers/eigen/linear_solver_eigen.h"
+
 int main(int argc, const char* argv[]){
     // Read config.yml. Specify the arguments in the settings.json file. For example,
     //  {
@@ -51,15 +58,56 @@ int main(int argc, const char* argv[]){
     
     // ********************************************************
     // Run L-InEKF    
-#ifndef NDEBUG
     std::cout << "Running L-InEKF" << std::endl;
-#endif
-    std::vector< PoseEstimate> X_hat = GetSe2InekfEstimates( 
+    
+    // Note that the estimates PoseEstimate is of type RandomVariable
+    std::vector< PoseEstimate> X_kf_rv = GetSe2InekfEstimates( 
             meas_prior,
             meas_gyro,
             meas_vel,
             meas_gps
             );
+
+    // Number of poses
+    const int K = X_kf_rv.size();
+
+    // Compute vector of Pose (SE2d) elements
+    std::vector< Pose> X_kf( K);
+    for( int i = 0; i < K; i++){
+        double x, y, real, imag;
+        x    = X_kf_rv[i].mean()(0, 2);
+        y    = X_kf_rv[i].mean()(1, 2);  
+        real = X_kf_rv[i].mean()(0, 0);  
+        imag = X_kf_rv[i].mean()(1, 0);  
+        X_kf[i] = Pose( x, y, real, imag);
+    }
+
+    // ********************************************************
+    // creating the optimization problem
+    typedef g2o::BlockSolver< g2o::BlockSolverTraits<-1, -1> >  SlamBlockSolver;
+    typedef g2o::LinearSolverEigen<SlamBlockSolver::PoseMatrixType> SlamLinearSolver;
+
+    // allocating the optimizer
+    g2o::SparseOptimizer optimizer;
+    auto linearSolver = g2o::make_unique<SlamLinearSolver>();
+    linearSolver->setBlockOrdering(false);
+    g2o::OptimizationAlgorithmGaussNewton* solver = new g2o::OptimizationAlgorithmGaussNewton(
+        g2o::make_unique<SlamBlockSolver>(std::move(linearSolver)));
+
+    optimizer.setAlgorithm(solver);
+
+    // ********************************************************
+    // Building graph
+    //      Adding poses/vertices
+    std::cout << "Building factor graph..." << std::endl;
+    for(int i = 0; i < K; i++){
+        g2o::SE2::VertexSE2* robot = new g2o::SE2::VertexSE2;
+        robot->setId(i);
+        // Set estimate from the L-InEKF
+        robot->setEstimate( X_kf[i]);
+        optimizer.addVertex(robot);
+    }
+    std::cout << "Done" << std::endl;
 
     // ********************************************************
     // Trying custom g2o types
@@ -97,5 +145,8 @@ int main(int argc, const char* argv[]){
     std::cout << odometry->error() << std::endl;
 
 
-    // RV::IO::write( X_hat, filename_kf, "X");
+    // TODO:
+    //  Implement dead-reckoning batch!
+
+    // RV::IO::write( X_kf, filename_kf, "X");
 }
