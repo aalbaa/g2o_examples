@@ -71,15 +71,20 @@ int main(int argc, const char* argv[]){
     // Number of poses
     const int K = X_kf_rv.size();
 
+    // dt_func returns sampling period at index k: dt_k = t_k - t_{k-1}
+    auto dt_func = [&X_kf_rv](int k){
+        return X_kf_rv[k].time() - X_kf_rv[k-1].time();
+    };
+
     // Compute vector of Pose (SE2d) elements
     std::vector< Pose> X_kf( K);
-    for( int i = 0; i < K; i++){
+    for( int k = 0; k < K; k++){
         double x, y, real, imag;
-        x    = X_kf_rv[i].mean()(0, 2);
-        y    = X_kf_rv[i].mean()(1, 2);  
-        real = X_kf_rv[i].mean()(0, 0);  
-        imag = X_kf_rv[i].mean()(1, 0);  
-        X_kf[i] = Pose( x, y, real, imag);
+        x    = X_kf_rv[k].mean()(0, 2);
+        y    = X_kf_rv[k].mean()(1, 2);  
+        real = X_kf_rv[k].mean()(0, 0);  
+        imag = X_kf_rv[k].mean()(1, 0);  
+        X_kf[k] = Pose( x, y, real, imag);
     }
 
     // ********************************************************
@@ -98,16 +103,42 @@ int main(int argc, const char* argv[]){
 
     // ********************************************************
     // Building graph
+    // **************
     //      Adding poses/vertices
     std::cout << "Building factor graph..." << std::endl;
-    for(int i = 0; i < K; i++){
+    for(int k = 0; k < K; k++){
         g2o::SE2::VertexSE2* robot = new g2o::SE2::VertexSE2;
-        robot->setId(i);
+        robot->setId(k);
         // Set estimate from the L-InEKF
-        robot->setEstimate( X_kf[i]);
+        robot->setEstimate( X_kf[k]);
         optimizer.addVertex(robot);
+
+        if(k > 0){
+            // Add odometry edges
+            g2o::SE2::BEdgeSE2SE2* odom = new g2o::SE2::BEdgeSE2SE2;
+            odom->vertices()[0] = optimizer.vertex( k - 1);
+            odom->vertices()[1] = optimizer.vertex( k);
+            // Compute the measurement vector
+            double dt_k = dt_func(k);
+            g2o::Vector3 u_km1( 
+                    dt_k * meas_vel[k].mean()(0),
+                    dt_k * meas_vel[k].mean()(1),
+                    dt_k * meas_gyro[k].mean()(0)
+                );
+            // Compute process noise covariance
+            CovQ Q_km1  = CovQ::Zero();
+            Q_km1.block< dof_vel, dof_vel>(0, 0)   = meas_vel[k].cov();
+            Q_km1.block< dof_gyro, dof_gyro>(2, 2) = meas_gyro[k].cov();
+            odom->setInformation( Q_km1.inverse());
+
+            // Add edge to graph
+            optimizer.addEdge( odom);
+        }            
     }
     std::cout << "Done" << std::endl;
+    
+    // **************
+    //      Adding odometry constraints
 
     // ********************************************************
     // Trying custom g2o types
