@@ -14,7 +14,9 @@ namespace g2o{
             const VertexSE2* v2 = static_cast<const VertexSE2*>(_vertices[1]);
 
             // Compute the error in the group
-            Pose delta = v2->estimate().inverse() * v1->estimate() * _Xi;
+            Pose delta = v2->estimate().inverse()
+                            * v1->estimate()
+                            * _Xi;
             
             // Get the coordinates (the twist) of the error (i.e., coordinates of the error in the Lie algebra)
             _error = delta.log().coeffs();

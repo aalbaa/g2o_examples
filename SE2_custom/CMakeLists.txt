@@ -25,7 +25,7 @@ FIND_PATH(CSPARSE_INCLUDE_DIR NAMES cs.h
 
 # Add the SE2 library
 add_library(example_se2_lib STATIC
-            b_edge_se2se2.cpp b_edge_se2se2.h vertex_se2.cpp vertex_se2.h)
+            b_edge_se2se2.cpp b_edge_se2se2.h vertex_se2.cpp vertex_se2.h types_slam_se2.h types_slam_se2.cpp)
 
 # Link the InEKF::SE2 in order to use the definitions in the header            
 target_link_libraries(example_se2_lib

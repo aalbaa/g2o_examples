@@ -17,6 +17,9 @@
 #include <g2o/solvers/csparse/linear_solver_csparse.h>
 #include <g2o/solvers/cholmod/linear_solver_cholmod.h>
 
+#include "g2o/core/marginal_covariance_cholesky.h"
+
+
 int main(int argc, const char* argv[]){
     // Read config.yml. Specify the arguments in the settings.json file. For example,
     //  {
@@ -94,15 +97,20 @@ int main(int argc, const char* argv[]){
 
     // ********************************************************
     // creating the optimization problem
-    typedef g2o::BlockSolver< g2o::BlockSolverTraits<-1, -1> >  SlamBlockSolver;
+    typedef g2o::BlockSolver< g2o::BlockSolverTraits<3, -1> >      SlamBlockSolver;
     typedef g2o::LinearSolverEigen<SlamBlockSolver::PoseMatrixType> SlamLinearSolver;
+    typedef g2o::LinearSolverCSparse<SlamBlockSolver::PoseMatrixType> CSparseLinearSolver;
+    typedef g2o::LinearSolverCholmod<SlamBlockSolver::PoseMatrixType> CholmodLinearSolver;
 
     // allocating the optimizer
     g2o::SparseOptimizer optimizer;
-    auto linearSolver = g2o::make_unique<SlamLinearSolver>();
+    // auto linearSolver = g2o::make_unique<SlamLinearSolver>();
+    auto linearSolver = g2o::make_unique<CSparseLinearSolver>();
     linearSolver->setBlockOrdering(false);
     g2o::OptimizationAlgorithmGaussNewton* solver = new g2o::OptimizationAlgorithmGaussNewton(
         g2o::make_unique<SlamBlockSolver>(std::move(linearSolver)));
+    // g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(
+        // g2o::make_unique<SlamBlockSolver>(std::move(linearSolver)));
 
     optimizer.setAlgorithm(solver);
 
@@ -126,13 +134,19 @@ int main(int argc, const char* argv[]){
             odom->vertices()[1] = optimizer.vertex( k);
             // Compute the measurement vector
             double dt_km1 = dt_func(km1);
-            g2o::Vector3 u_km1( 
-                    dt_km1 * meas_vel [km1].mean()(0),
-                    dt_km1 * meas_vel [km1].mean()(1),
-                    dt_km1 * meas_gyro[km1].mean()(0)
-                );
+            // g2o::Vector3 u_km1( 
+            //         dt_km1 * meas_vel [km1].mean()(0),
+            //         dt_km1 * meas_vel [km1].mean()(1),
+            //         dt_km1 * meas_gyro[km1].mean()(0)
+            //     );
             odom->setDt( dt_km1);
-            odom->setMeasurement( u_km1);
+            odom->setMeasurement( 
+                g2o::Vector3( 
+                    meas_vel [km1].mean()(0),
+                    meas_vel [km1].mean()(1),
+                    meas_gyro[km1].mean()(0)                    
+                )
+            );
             // Compute process noise covariance
             CovQ Q_km1  = CovQ::Zero();
             Q_km1.block< dof_vel, dof_vel>(0, 0)   = meas_vel [km1].cov();
@@ -140,11 +154,14 @@ int main(int argc, const char* argv[]){
             // Jacobian of process model w.r.t. process noise w_km1
             JacF_wkm1 jac_F_wkm1 = dt_km1 * JacF_wkm1::Identity();
             odom->setInformation( (jac_F_wkm1 * Q_km1 * jac_F_wkm1.transpose()).inverse());
-
+            
             // Add edge to graph
             optimizer.addEdge( odom);
         }            
     }
+
+    // dump initial state to the disk
+    optimizer.save("tutorial_before.g2o");
 
     // ********************************************************
     // Solving the optimization problem
@@ -155,20 +172,39 @@ int main(int argc, const char* argv[]){
 #endif
     // fix the first robot pose to account for gauge freedom
     g2o::SE2::VertexSE2* firstRobotPose = dynamic_cast<g2o::SE2::VertexSE2*>(optimizer.vertex(0));
-    firstRobotPose->setFixed(true);
+    firstRobotPose->setFixed(true);    
+    if(firstRobotPose->fixed()){
+        std::cout << "First pose is fixed. Make sure the prior is set to ground truth in order to get consistent estimates." << std::endl;
+    }
+    // Note: if fixing pose, then use a ground truth prior!
 
     // Set verbosity
     optimizer.setVerbose(true);
 
     std::cout << "Optimizing" << std::endl;
     optimizer.initializeOptimization();
-    optimizer.optimize( 3);
-    
+    optimizer.optimize( 10);
+    // optimizer.computeBatchStatistics();
     std::cout << "Done" << std::endl;
 
+    // ********************************************************
+    // Computing marginals    
+    // std::cout << "Computing marginals" << std::endl;
+    // Compute marginals
+    auto vertices = optimizer.activeVertices();
+    
+    // g2o::OptimizableGraph::VertexContainer vv( 2);
+    // vv[0] = vertices[1];
+    // vv[1] = vertices[2];
+    // std::cout << sp_cov_X_k.block(0, 0)->eval() << std::endl;
+
+    // g2o::SparseBlockMatrixX sp_cov_X_k;
+    // optimizer.computeMarginals( sp_cov_X_k, vertices);
+    
+    // std::cout << "Done" << std::endl;
 
     // ********************************************************
-    // Export to random variable vector
+    // Export to random variable vector    
     std::vector< PoseEstimate> X_batch_rv( K);
     for( int k = 0; k < K; k++){
         // Set time
@@ -176,22 +212,34 @@ int main(int argc, const char* argv[]){
 
         // Set mean
         g2o::SE2::VertexSE2* p_X_k = dynamic_cast<g2o::SE2::VertexSE2*>(optimizer.vertex(k));
-        X_batch_rv[k].setMean( p_X_k->estimate().transform());       
+        X_batch_rv[k].setMean( p_X_k->estimate().transform().transpose());       
 
-        // // Set covariance
-        // g2o::SparseBlockMatrixX sp_cov_X_k;
-        // optimizer.computeMarginals( sp_cov_X_k, optimizer.vertex(k));
-        // Eigen::MatrixXd dd =  sp_cov_X_k.block(0, 0)->eval();
-        // X_batch_rv[k].setCov( 
-                
-        //     );
+        // Set covariance        
+        if( k == 0 && firstRobotPose->fixed()){
+            X_batch_rv[0].setCov( 
+                    X_kf_rv[0].cov()
+                );            
+        }else{
+            g2o::SparseBlockMatrixX sp_cov_X_k;
+            g2o::OptimizableGraph::VertexContainer v_k( 1);
+            v_k[0] = vertices[k];
+            optimizer.computeMarginals( sp_cov_X_k, v_k);
+            CovPose P_k = sp_cov_X_k.block(k-1, k-1)->eval();
+            X_batch_rv[k].setCov( 
+                    P_k
+                );
+            // X_batch_rv[k].setCov( 
+            //         sp_cov_X_k.block(k, k)->eval()
+            //     );
+        }
     }
-        
+
+    
+    // optimizer.save("tutorial_after.g2o");
+
+    std::cout << "Exporting batch estimate to " << config["filename_batch"].as<std::string>() << std::endl;
+    RV::IO::write( X_batch_rv, config["filename_batch"].as<std::string>(), "X");
+
     // Free graph memory
     optimizer.clear();
-
-    // TODO:
-    //  Implement dead-reckoning batch!
-
-    // RV::IO::write( X_kf, filename_kf, "X");
 }
