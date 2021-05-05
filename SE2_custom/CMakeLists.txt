@@ -10,6 +10,19 @@ find_package(RandomVariable)
 find_package(manif REQUIRED)
 find_package(Eigen3)
 
+FIND_PATH(CSPARSE_INCLUDE_DIR NAMES cs.h
+  PATHS
+  /usr/include/suitesparse
+  /usr/include
+  /opt/local/include
+  /usr/local/include
+  /sw/include
+  /usr/include/ufsparse
+  /opt/local/include/ufsparse
+  /usr/local/include/ufsparse
+  /sw/include/ufsparse
+)
+
 # Add the SE2 library
 add_library(example_se2_lib STATIC
             b_edge_se2se2.cpp b_edge_se2se2.h vertex_se2.cpp vertex_se2.h)
@@ -20,6 +33,10 @@ target_link_libraries(example_se2_lib
     InEKF::SE2 MANIF::manif
     g2o::core g2o::stuff g2o::solver_eigen g2o::solver_csparse g2o::csparse_extension
 )        
+target_include_directories(example_se2_lib 
+  PUBLIC
+  ${CSPARSE_INCLUDE_DIR}
+)
 
 
 # Main executable
@@ -30,6 +47,10 @@ target_link_libraries(main
     InEKF::SE2
     example_se2_lib
   )
+
+  # target_include_directories(main PUBLIC 
+  # ${CSPARSE_INCLUDE_DIR}
+  # )
 
 # Set required C++ standard flag
 set_property(TARGET main PROPERTY CXX_STANDARD 17)

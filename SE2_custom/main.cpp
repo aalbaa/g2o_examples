@@ -6,11 +6,16 @@
 #include "b_edge_se2se2.h"
 
 #include "g2o/core/sparse_optimizer.h"
+#include "g2o/core/sparse_block_matrix.h"
 #include "g2o/core/block_solver.h"
 #include "g2o/core/factory.h"
 #include "g2o/core/optimization_algorithm_factory.h"
 #include "g2o/core/optimization_algorithm_gauss_newton.h"
+#include <g2o/core/optimization_algorithm_levenberg.h>
+
 #include "g2o/solvers/eigen/linear_solver_eigen.h"
+#include <g2o/solvers/csparse/linear_solver_csparse.h>
+#include <g2o/solvers/cholmod/linear_solver_cholmod.h>
 
 int main(int argc, const char* argv[]){
     // Read config.yml. Specify the arguments in the settings.json file. For example,
