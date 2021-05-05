@@ -72,8 +72,8 @@ int main(int argc, const char* argv[]){
     const int K = X_kf_rv.size();
 
     // dt_func returns sampling period at index k: dt_k = t_k - t_{k-1}
-    auto dt_func = [&X_kf_rv](int k){
-        return X_kf_rv[k].time() - X_kf_rv[k-1].time();
+    auto dt_func = [&meas_gyro](int k){
+        return meas_gyro[k+1].time() - meas_gyro[k].time();
     };
 
     // Compute vector of Pose (SE2d) elements
@@ -102,9 +102,9 @@ int main(int argc, const char* argv[]){
     optimizer.setAlgorithm(solver);
 
     // ********************************************************
-    // Building graph
-    // **************
-    //      Adding poses/vertices
+    // Building graph: 
+    //      - Adding poses/vertices
+    //      - Adding odometry measurements
     std::cout << "Building factor graph..." << std::endl;
     for(int k = 0; k < K; k++){
         g2o::SE2::VertexSE2* robot = new g2o::SE2::VertexSE2;
@@ -114,67 +114,76 @@ int main(int argc, const char* argv[]){
         optimizer.addVertex(robot);
 
         if(k > 0){
+            int km1 = k - 1;
             // Add odometry edges
             g2o::SE2::BEdgeSE2SE2* odom = new g2o::SE2::BEdgeSE2SE2;
             odom->vertices()[0] = optimizer.vertex( k - 1);
             odom->vertices()[1] = optimizer.vertex( k);
             // Compute the measurement vector
-            double dt_k = dt_func(k);
+            double dt_km1 = dt_func(km1);
             g2o::Vector3 u_km1( 
-                    dt_k * meas_vel[k].mean()(0),
-                    dt_k * meas_vel[k].mean()(1),
-                    dt_k * meas_gyro[k].mean()(0)
+                    dt_km1 * meas_vel [km1].mean()(0),
+                    dt_km1 * meas_vel [km1].mean()(1),
+                    dt_km1 * meas_gyro[km1].mean()(0)
                 );
+            odom->setDt( dt_km1);
+            odom->setMeasurement( u_km1);
             // Compute process noise covariance
             CovQ Q_km1  = CovQ::Zero();
-            Q_km1.block< dof_vel, dof_vel>(0, 0)   = meas_vel[k].cov();
-            Q_km1.block< dof_gyro, dof_gyro>(2, 2) = meas_gyro[k].cov();
-            odom->setInformation( Q_km1.inverse());
+            Q_km1.block< dof_vel, dof_vel>(0, 0)   = meas_vel [km1].cov();
+            Q_km1.block< dof_gyro, dof_gyro>(2, 2) = meas_gyro[km1].cov();
+            // Jacobian of process model w.r.t. process noise w_km1
+            JacF_wkm1 jac_F_wkm1 = dt_km1 * JacF_wkm1::Identity();
+            odom->setInformation( (jac_F_wkm1 * Q_km1 * jac_F_wkm1.transpose()).inverse());
 
             // Add edge to graph
             optimizer.addEdge( odom);
         }            
     }
-    std::cout << "Done" << std::endl;
-    
-    // **************
-    //      Adding odometry constraints
 
     // ********************************************************
-    // Trying custom g2o types
-    g2o::SE2::VertexSE2* X1 = new g2o::SE2::VertexSE2;
-    const double dx[3] = {1.0, 2.0, 0.0};
-    X1->setId(1);
-    X1->setEstimate( Pose( 0, 0, 0));
-    // X1->oplus( dx);
-    std::cout << X1->estimate().log().coeffs() << std::endl;
-    X1->setTime( 0.0);
-    std::cout << X1->time() << std::endl;
+    // Solving the optimization problem
+    std::cout << "Setting up optimization problem" << std::endl;
+
+#ifndef NDEBUG
+    std::cout << "\tFixing first pose" << std::endl;
+#endif
+    // fix the first robot pose to account for gauge freedom
+    g2o::SE2::VertexSE2* firstRobotPose = dynamic_cast<g2o::SE2::VertexSE2*>(optimizer.vertex(0));
+    firstRobotPose->setFixed(true);
+
+    // Set verbosity
+    optimizer.setVerbose(true);
+
+    std::cout << "Optimizing" << std::endl;
+    optimizer.initializeOptimization();
+    optimizer.optimize( 3);
     
-    g2o::SE2::VertexSE2* X2 = new g2o::SE2::VertexSE2;    
-    X2->setId(2);
-    X2->setEstimate( Pose( 1 + 0.1, 2 - 0.1, M_PI/4 + 0.01));
-    std::cout << X2->estimate().log().coeffs() << std::endl;
-    X2->setTime( 0.1);
-    std::cout << X2->time() << std::endl;
-    // std::cout << "X: " << X << std::endl;
+    std::cout << "Done" << std::endl;
 
-    // Trying the custom SE2 <-> SE2 edge
-    g2o::SE2::BEdgeSE2SE2* odometry = new g2o::SE2::BEdgeSE2SE2;
-    odometry->vertices()[0] = X1;
-    odometry->vertices()[1] = X2;
-    // Set sampling period
-    odometry->setDt( 0.1);
-    // Set measurement
-    odometry->setMeasurement(g2o::Vector3(1, 2, M_PI/4));
-    odometry->setInformation(CovPose::Identity());
-    std::cout << odometry->measurement() << std::endl;
-    
-    std::cout << odometry->information() << std::endl;
 
-    odometry->computeError();
-    std::cout << odometry->error() << std::endl;
+    // ********************************************************
+    // Export to random variable vector
+    std::vector< PoseEstimate> X_batch_rv( K);
+    for( int k = 0; k < K; k++){
+        // Set time
+        X_batch_rv[k].setTime( X_kf_rv[k].time());
 
+        // Set mean
+        g2o::SE2::VertexSE2* p_X_k = dynamic_cast<g2o::SE2::VertexSE2*>(optimizer.vertex(k));
+        X_batch_rv[k].setMean( p_X_k->estimate().transform());       
+
+        // // Set covariance
+        // g2o::SparseBlockMatrixX sp_cov_X_k;
+        // optimizer.computeMarginals( sp_cov_X_k, optimizer.vertex(k));
+        // Eigen::MatrixXd dd =  sp_cov_X_k.block(0, 0)->eval();
+        // X_batch_rv[k].setCov( 
+                
+        //     );
+    }
+        
+    // Free graph memory
+    optimizer.clear();
 
     // TODO:
     //  Implement dead-reckoning batch!
