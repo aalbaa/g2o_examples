@@ -13,7 +13,7 @@ namespace g2o{
             const VertexSE2* v1 = static_cast<const VertexSE2*>(_vertices[0]);
             const VertexSE2* v2 = static_cast<const VertexSE2*>(_vertices[1]);
 
-            // Compute the error in the group
+            // Compute the left-invariant error in the group
             Pose delta = v2->estimate().inverse()
                             * v1->estimate()
                             * _Xi;

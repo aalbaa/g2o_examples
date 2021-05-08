@@ -2,8 +2,7 @@
 
 #include "inekf_se2.h"
 
-#include "vertex_se2.h"
-#include "b_edge_se2se2.h"
+#include "types_slam_se2.h"
 
 #include "g2o/core/sparse_optimizer.h"
 #include "g2o/core/sparse_block_matrix.h"
@@ -110,7 +109,7 @@ int main(int argc, const char* argv[]){
     g2o::OptimizationAlgorithmGaussNewton* solver = new g2o::OptimizationAlgorithmGaussNewton(
         g2o::make_unique<SlamBlockSolver>(std::move(linearSolver)));
     // g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(
-        // g2o::make_unique<SlamBlockSolver>(std::move(linearSolver)));
+    //     g2o::make_unique<SlamBlockSolver>(std::move(linearSolver)));
 
     optimizer.setAlgorithm(solver);
 
@@ -119,6 +118,9 @@ int main(int argc, const char* argv[]){
     //      - Adding poses/vertices
     //      - Adding odometry measurements
     std::cout << "Building factor graph..." << std::endl;
+
+    // Index that keeps track of the gps measurements
+    size_t idx_gps = 0;
     for(int k = 0; k < K; k++){
         g2o::SE2::VertexSE2* robot = new g2o::SE2::VertexSE2;
         robot->setId(k);
@@ -157,7 +159,33 @@ int main(int argc, const char* argv[]){
             
             // Add edge to graph
             optimizer.addEdge( odom);
-        }            
+        }
+
+        // Add GPS edges
+        if( idx_gps < meas_gps.size() && (meas_gps[idx_gps].time() <= X_kf_rv[k].time())){
+            // Create GPS unary edge
+            g2o::SE2::UEdgeSE2Gps* y_gps_k = new g2o::SE2::UEdgeSE2Gps;
+            y_gps_k->vertices()[0] = optimizer.vertex( k);
+            // Set the measurement
+            y_gps_k->setMeasurement(
+                    g2o::Vector2(
+                        meas_gps[ idx_gps].mean()
+                    )
+                );
+            // TODO: Compute the Jacobian of the gps-error w.r.t. state
+            // Compute Jacobian of the gps-error w.r.t. measurement noise.
+            JacYgps_nk jac_Y_gps_n = X_kf[k].rotation().transpose();
+            // Compute GPS noise covariance
+            auto R_k = meas_gps[idx_gps].cov();
+            // Set information matrix
+            y_gps_k->setInformation( (jac_Y_gps_n * R_k * jac_Y_gps_n.transpose()).inverse());
+
+            // Add edge to graph
+            optimizer.addEdge( y_gps_k);
+
+            // Increment GPS measurement counter
+            idx_gps++;
+        }
     }
 
     // dump initial state to the disk
@@ -212,7 +240,7 @@ int main(int argc, const char* argv[]){
 
         // Set mean
         g2o::SE2::VertexSE2* p_X_k = dynamic_cast<g2o::SE2::VertexSE2*>(optimizer.vertex(k));
-        X_batch_rv[k].setMean( p_X_k->estimate().transform().transpose());       
+        X_batch_rv[k].setMean( p_X_k->estimate().transform());       
 
         // Set covariance        
         if( k == 0 && firstRobotPose->fixed()){
@@ -236,6 +264,11 @@ int main(int argc, const char* argv[]){
 
     
     // optimizer.save("tutorial_after.g2o");
+
+    // Temporary adjustment 
+    // std::cout << X_kf_rv[50].mean() << std::endl;
+    // std::cout << "Exporting L-InEKF estimate to " << config["filename_kf"].as<std::string>() << std::endl;
+    RV::IO::write( X_kf_rv, config["filename_kf"].as<std::string>(), "X");
 
     std::cout << "Exporting batch estimate to " << config["filename_batch"].as<std::string>() << std::endl;
     RV::IO::write( X_batch_rv, config["filename_batch"].as<std::string>(), "X");

@@ -3,5 +3,6 @@
 
 #include "vertex_se2.h"
 #include "b_edge_se2se2.h"
+#include "u_edge_se2_gps.h"
 
 #endif
