@@ -1,30 +1,28 @@
-#include "u_edge_se2_gps.h"
+#include "u_edge_se2_prior.h"
 
 namespace g2o{
     namespace SE2{
-        UEdgeSE2Gps::UEdgeSE2Gps() : 
-            BaseUnaryEdge< 2, Vector2, VertexSE2>(){
+        UEdgeSE2Prior::UEdgeSE2Prior() : 
+            BaseUnaryEdge< dof_x, Pose, VertexSE2>(){
 
         }
 
-        void UEdgeSE2Gps::computeError()
+        void UEdgeSE2Prior::computeError()
         {
             // Get vertex
             const VertexSE2* v1 = static_cast<const VertexSE2*>(_vertices[0]);
-
-            // // Compute the left-invariant error (check notes)
-            // Vector2 _error = v1->estimate().rotation().transpose() * (
-            //     _measurement - v1->estimate().translation()
-            // );
-            // Compute the left-invariant error (check notes)
-            // Vector2 _error = v1->estimate().rotation().transpose() *(_measurement - v1->estimate().translation());
-            _error = _measurement - v1->estimate().translation();
+            
+            // Compute the left-invariant error in the group
+            Pose delta = v1->estimate().inverse() * _measurement;
+                            
+            // Get the coordinates (the twist) of the error (i.e., coordinates of the error in the Lie algebra)
+            _error = delta.log().coeffs();
         }
 
-        bool UEdgeSE2Gps::read(std::istream& is)
+        bool UEdgeSE2Prior::read(std::istream& is)
         {
-            // Vector2 p;
-            // is >> p[0] >> p[1];
+            // Vector3 p;
+            // is >> p[0] >> p[1] ;
             // _measurement = p;
             // for (int i = 0; i < 2; ++i)
             //     for (int j = i; j < 2; ++j) {
@@ -35,7 +33,7 @@ namespace g2o{
             return false;
         }
 
-        bool UEdgeSE2Gps::write(std::ostream& os) const
+        bool UEdgeSE2Prior::write(std::ostream& os) const
         {
             // Vector2 p = measurement();
             // os << p(0) << " " << p(1);;

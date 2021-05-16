@@ -99,11 +99,12 @@ int main(int argc, const char* argv[]){
     typedef g2o::BlockSolver< g2o::BlockSolverTraits<3, -1> >      SlamBlockSolver;
     typedef g2o::LinearSolverEigen<SlamBlockSolver::PoseMatrixType> SlamLinearSolver;
     typedef g2o::LinearSolverCSparse<SlamBlockSolver::PoseMatrixType> CSparseLinearSolver;
-    typedef g2o::LinearSolverCholmod<SlamBlockSolver::PoseMatrixType> CholmodLinearSolver;
+    typedef g2o::LinearSolverCholmod<SlamBlockSolver::PoseMatrixType> CholmodLinearSolver;  // Can be used to compute marginals
 
     // allocating the optimizer
     g2o::SparseOptimizer optimizer;
     // auto linearSolver = g2o::make_unique<SlamLinearSolver>();
+    // auto linearSolver = g2o::make_unique<CholmodLinearSolver>();
     auto linearSolver = g2o::make_unique<CSparseLinearSolver>();
     linearSolver->setBlockOrdering(false);
     g2o::OptimizationAlgorithmGaussNewton* solver = new g2o::OptimizationAlgorithmGaussNewton(
@@ -126,21 +127,28 @@ int main(int argc, const char* argv[]){
         robot->setId(k);
         // Set estimate from the L-InEKF
         robot->setEstimate( X_kf[k]);
+        // robot->setEstimate( Pose::Identity());
         optimizer.addVertex(robot);
 
+        // Add prior measurement
+        if( k == 0){
+            g2o::SE2::UEdgeSE2Prior* prior = new g2o::SE2::UEdgeSE2Prior;
+            prior->vertices()[0] = optimizer.vertex( k);                        
+            EPose X_prior_eig = meas_prior.mean();
+            Pose  X_prior = Pose( X_prior_eig(0, 2), X_prior_eig( 1, 2), std::atan2( X_prior_eig(1, 0), X_prior_eig( 0, 0)));
+            prior->setMeasurement( X_prior);
+            prior->setInformation( meas_prior.cov().inverse());
+        }
         if(k > 0){
             int km1 = k - 1;
             // Add odometry edges
             g2o::SE2::BEdgeSE2SE2* odom = new g2o::SE2::BEdgeSE2SE2;
-            odom->vertices()[0] = optimizer.vertex( k - 1);
-            odom->vertices()[1] = optimizer.vertex( k);
+            // odom->vertices()[0] = optimizer.vertex( k - 1);
+            // odom->vertices()[1] = optimizer.vertex( k);
+            odom->setVertex( 0, optimizer.vertex( k - 1));
+            odom->setVertex( 1, optimizer.vertex( k));
             // Compute the measurement vector
             double dt_km1 = dt_func(km1);
-            // g2o::Vector3 u_km1( 
-            //         dt_km1 * meas_vel [km1].mean()(0),
-            //         dt_km1 * meas_vel [km1].mean()(1),
-            //         dt_km1 * meas_gyro[km1].mean()(0)
-            //     );
             odom->setDt( dt_km1);
             odom->setMeasurement( 
                 g2o::Vector3( 
@@ -165,7 +173,8 @@ int main(int argc, const char* argv[]){
         if( idx_gps < meas_gps.size() && (meas_gps[idx_gps].time() <= X_kf_rv[k].time())){
             // Create GPS unary edge
             g2o::SE2::UEdgeSE2Gps* y_gps_k = new g2o::SE2::UEdgeSE2Gps;
-            y_gps_k->vertices()[0] = optimizer.vertex( k);
+            // y_gps_k->vertices()[0] = optimizer.vertex( k);
+            y_gps_k->setVertex( 0, optimizer.vertex( k));
             // Set the measurement
             y_gps_k->setMeasurement(
                     g2o::Vector2(
@@ -176,7 +185,7 @@ int main(int argc, const char* argv[]){
             // Compute Jacobian of the gps-error w.r.t. measurement noise.
             JacYgps_nk jac_Y_gps_n = X_kf[k].rotation().transpose();
             // Compute GPS noise covariance
-            auto R_k = meas_gps[idx_gps].cov();
+            CovGps R_k = meas_gps[idx_gps].cov();
             // Set information matrix
             y_gps_k->setInformation( (jac_Y_gps_n * R_k * jac_Y_gps_n.transpose()).inverse());
 
@@ -200,20 +209,62 @@ int main(int argc, const char* argv[]){
 #endif
     // fix the first robot pose to account for gauge freedom
     g2o::SE2::VertexSE2* firstRobotPose = dynamic_cast<g2o::SE2::VertexSE2*>(optimizer.vertex(0));
-    firstRobotPose->setFixed(true);    
+    // firstRobotPose->setFixed( config["g2o"]["fix_x0"].as<bool>());
+    firstRobotPose->setFixed( true);
     if(firstRobotPose->fixed()){
         std::cout << "First pose is fixed. Make sure the prior is set to ground truth in order to get consistent estimates." << std::endl;
     }
     // Note: if fixing pose, then use a ground truth prior!
+    std::cout << "First pose fixed: " << optimizer.vertex(0)->fixed() << std::endl;
 
     // Set verbosity
     optimizer.setVerbose(true);
 
     std::cout << "Optimizing" << std::endl;
     optimizer.initializeOptimization();
+    // optimizer.computeInitialGuess();
     optimizer.optimize( 10);
     // optimizer.computeBatchStatistics();
     std::cout << "Done" << std::endl;
+
+
+    // // ********************************************************
+    // // Debugging
+    // {
+    //     idx_gps = 0;
+    //     int k = 0;
+    //     for( auto X_k : optimizer.activeVertices()){
+    //     // for(int k = 0; k < K; k++){
+    //         // auto X_k = dynamic_cast<g2o::SE2::VertexSE2*>(optimizer.vertex(k));
+    //         // std::cout << "ID: " << X_k->id() << std::endl;
+    //         // Edges
+            
+    //         if( idx_gps < meas_gps.size() && (meas_gps[idx_gps].time() <= X_kf_rv[k].time())){
+    //              auto edge_set = X_k->edges();
+    //             for( auto e_i : edge_set){
+    //                 // If number of vertices == 1, then it's the GPS edge
+    //                 if( e_i->vertices().size() == 1){
+    //                     g2o::SE2::UEdgeSE2Gps* e_gps = dynamic_cast<g2o::SE2::UEdgeSE2Gps*>(e_i);
+    //                     std::cout << "meas: " << e_gps->measurement() << std::endl;
+    //                     std::cout << "r_k: " << dynamic_cast<g2o::SE2::VertexSE2*>(X_k)->estimate().translation() << std::endl;
+    //                     std::cout << "infm: " << e_gps->information() << std::endl;
+    //                     e_gps->computeError();
+    //                     std::cout << "chi2: " << e_gps->chi2() << std::endl;                        
+    //                 }else{
+    //                     g2o::SE2::BEdgeSE2SE2* e_odom = dynamic_cast<g2o::SE2::BEdgeSE2SE2*>(e_i);
+    //                     e_odom->chi2();
+    //                 }
+    //             }
+
+    //             // Poses with GPS edges
+    //             idx_gps++;
+    //         }
+
+    //         k++;
+    //     }
+    // }
+    // // Done debugging
+    // // ********************************************************
 
     // ********************************************************
     // Computing marginals    
@@ -221,16 +272,6 @@ int main(int argc, const char* argv[]){
     // Compute marginals
     auto vertices = optimizer.activeVertices();
     
-    // g2o::OptimizableGraph::VertexContainer vv( 2);
-    // vv[0] = vertices[1];
-    // vv[1] = vertices[2];
-    // std::cout << sp_cov_X_k.block(0, 0)->eval() << std::endl;
-
-    // g2o::SparseBlockMatrixX sp_cov_X_k;
-    // optimizer.computeMarginals( sp_cov_X_k, vertices);
-    
-    // std::cout << "Done" << std::endl;
-
     // ********************************************************
     // Export to random variable vector    
     std::vector< PoseEstimate> X_batch_rv( K);
@@ -244,21 +285,22 @@ int main(int argc, const char* argv[]){
 
         // Set covariance        
         if( k == 0 && firstRobotPose->fixed()){
+        // if( k == 0){
             X_batch_rv[0].setCov( 
-                    X_kf_rv[0].cov()
+                    0 * X_kf_rv[0].cov()
                 );            
         }else{
             g2o::SparseBlockMatrixX sp_cov_X_k;
-            g2o::OptimizableGraph::VertexContainer v_k( 1);
+            // Vertex container containing 1 vertex
+            g2o::OptimizableGraph::VertexContainer v_k( 1); 
             v_k[0] = vertices[k];
             optimizer.computeMarginals( sp_cov_X_k, v_k);
-            CovPose P_k = sp_cov_X_k.block(k-1, k-1)->eval();
-            X_batch_rv[k].setCov( 
-                    P_k
+            // std::cout << "Size: [" << sp_cov_X_k.rows() << ", " << sp_cov_X_k.cols() << "]" <<std::endl;
+            if(sp_cov_X_k.rows() > 0){
+                X_batch_rv[k].setCov( 
+                    CovPosThetaToCovThetaPos( sp_cov_X_k.block( k - 1, k - 1)->eval())
                 );
-            // X_batch_rv[k].setCov( 
-            //         sp_cov_X_k.block(k, k)->eval()
-            //     );
+            }
         }
     }
 
@@ -267,7 +309,7 @@ int main(int argc, const char* argv[]){
 
     // Temporary adjustment 
     // std::cout << X_kf_rv[50].mean() << std::endl;
-    // std::cout << "Exporting L-InEKF estimate to " << config["filename_kf"].as<std::string>() << std::endl;
+    std::cout << "Exporting L-InEKF estimate to " << config["filename_kf"].as<std::string>() << std::endl;
     RV::IO::write( X_kf_rv, config["filename_kf"].as<std::string>(), "X");
 
     std::cout << "Exporting batch estimate to " << config["filename_batch"].as<std::string>() << std::endl;
