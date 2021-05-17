@@ -209,8 +209,7 @@ int main(int argc, const char* argv[]){
 #endif
     // fix the first robot pose to account for gauge freedom
     g2o::SE2::VertexSE2* firstRobotPose = dynamic_cast<g2o::SE2::VertexSE2*>(optimizer.vertex(0));
-    // firstRobotPose->setFixed( config["g2o"]["fix_x0"].as<bool>());
-    firstRobotPose->setFixed( true);
+    firstRobotPose->setFixed( config["g2o"]["fix_x0"].as<bool>());
     if(firstRobotPose->fixed()){
         std::cout << "First pose is fixed. Make sure the prior is set to ground truth in order to get consistent estimates." << std::endl;
     }
@@ -223,95 +222,80 @@ int main(int argc, const char* argv[]){
     std::cout << "Optimizing" << std::endl;
     optimizer.initializeOptimization();
     // optimizer.computeInitialGuess();
-    optimizer.optimize( 10);
+    optimizer.optimize( 3);
     // optimizer.computeBatchStatistics();
     std::cout << "Done" << std::endl;
 
 
-    // // ********************************************************
-    // // Debugging
-    // {
-    //     idx_gps = 0;
-    //     int k = 0;
-    //     for( auto X_k : optimizer.activeVertices()){
-    //     // for(int k = 0; k < K; k++){
-    //         // auto X_k = dynamic_cast<g2o::SE2::VertexSE2*>(optimizer.vertex(k));
-    //         // std::cout << "ID: " << X_k->id() << std::endl;
-    //         // Edges
-            
-    //         if( idx_gps < meas_gps.size() && (meas_gps[idx_gps].time() <= X_kf_rv[k].time())){
-    //              auto edge_set = X_k->edges();
-    //             for( auto e_i : edge_set){
-    //                 // If number of vertices == 1, then it's the GPS edge
-    //                 if( e_i->vertices().size() == 1){
-    //                     g2o::SE2::UEdgeSE2Gps* e_gps = dynamic_cast<g2o::SE2::UEdgeSE2Gps*>(e_i);
-    //                     std::cout << "meas: " << e_gps->measurement() << std::endl;
-    //                     std::cout << "r_k: " << dynamic_cast<g2o::SE2::VertexSE2*>(X_k)->estimate().translation() << std::endl;
-    //                     std::cout << "infm: " << e_gps->information() << std::endl;
-    //                     e_gps->computeError();
-    //                     std::cout << "chi2: " << e_gps->chi2() << std::endl;                        
-    //                 }else{
-    //                     g2o::SE2::BEdgeSE2SE2* e_odom = dynamic_cast<g2o::SE2::BEdgeSE2SE2*>(e_i);
-    //                     e_odom->chi2();
-    //                 }
-    //             }
-
-    //             // Poses with GPS edges
-    //             idx_gps++;
-    //         }
-
-    //         k++;
-    //     }
-    // }
-    // // Done debugging
-    // // ********************************************************
-
     // ********************************************************
     // Computing marginals    
-    // std::cout << "Computing marginals" << std::endl;
+    std::cout << "Computing marginals" << std::endl;
     // Compute marginals
     auto vertices = optimizer.activeVertices();
     
     // ********************************************************
     // Export to random variable vector    
     std::vector< PoseEstimate> X_batch_rv( K);
+    // Progress bar
+    // Show an example of an "empty" progress bar
+    std::cout << "|" << std::string( 61, ' ') << "|" << std::endl;
+    std::cout << "|" << std::flush;
     for( int k = 0; k < K; k++){
+        // Output iteration
+        if( k % (K/60) == 0){
+            // std::cout << "\tMarginals: " << k << " of " << K << std::endl;
+            std::cout << "=" << std::flush;
+        }
         // Set time
         X_batch_rv[k].setTime( X_kf_rv[k].time());
 
         // Set mean
         g2o::SE2::VertexSE2* p_X_k = dynamic_cast<g2o::SE2::VertexSE2*>(optimizer.vertex(k));
         X_batch_rv[k].setMean( p_X_k->estimate().transform());       
-
-        // Set covariance        
-        if( k == 0 && firstRobotPose->fixed()){
-        // if( k == 0){
-            X_batch_rv[0].setCov( 
+        
+        if( firstRobotPose->fixed()){
+            if( k == 0){
+                X_batch_rv[0].setCov( 
                     0 * X_kf_rv[0].cov()
-                );            
+                ); 
+            }else{
+                // Set covariance        
+                g2o::SparseBlockMatrixX sp_cov_X_k;
+                // Vertex container containing 1 vertex
+                g2o::OptimizableGraph::VertexContainer v_k( 1); 
+                v_k[0] = vertices[k];
+                optimizer.computeMarginals( sp_cov_X_k, v_k);
+                if(sp_cov_X_k.rows() > 0){
+                    X_batch_rv[k].setCov( 
+                        CovPosThetaToCovThetaPos( sp_cov_X_k.block( k - 1, k - 1)->eval())
+                    );
+                }
+            }
         }else{
+            // Set covariance        
             g2o::SparseBlockMatrixX sp_cov_X_k;
             // Vertex container containing 1 vertex
             g2o::OptimizableGraph::VertexContainer v_k( 1); 
+            // Set covariance        
             v_k[0] = vertices[k];
             optimizer.computeMarginals( sp_cov_X_k, v_k);
-            // std::cout << "Size: [" << sp_cov_X_k.rows() << ", " << sp_cov_X_k.cols() << "]" <<std::endl;
             if(sp_cov_X_k.rows() > 0){
+                optimizer.computeMarginals( sp_cov_X_k, v_k);
+                
                 X_batch_rv[k].setCov( 
-                    CovPosThetaToCovThetaPos( sp_cov_X_k.block( k - 1, k - 1)->eval())
+                    CovPosThetaToCovThetaPos( sp_cov_X_k.block( k, k)->eval())
                 );
             }
         }
     }
+    // End of progress bar
+    std::cout << "|" << std::endl;
 
-    
-    // optimizer.save("tutorial_after.g2o");
-
-    // Temporary adjustment 
-    // std::cout << X_kf_rv[50].mean() << std::endl;
+    // Exporting KF estimates
     std::cout << "Exporting L-InEKF estimate to " << config["filename_kf"].as<std::string>() << std::endl;
     RV::IO::write( X_kf_rv, config["filename_kf"].as<std::string>(), "X");
 
+    // Exporting batch estimates
     std::cout << "Exporting batch estimate to " << config["filename_batch"].as<std::string>() << std::endl;
     RV::IO::write( X_batch_rv, config["filename_batch"].as<std::string>(), "X");
 
