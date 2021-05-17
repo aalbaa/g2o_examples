@@ -31,8 +31,12 @@ int main(int argc, const char* argv[]){
     YAML::Node config;
     std::string filename_config;
     filename_config = argv[1];
+#ifndef NDEBUG    
     std::cout << argc << " arguments passed: " << filename_config << std::endl;
+#endif    
     config = YAML::LoadFile( filename_config);
+    // Set verbosity
+    const bool verb = config["verb"].as<bool>();
     // Get output file name
     const std::string filename_kf   = config["filename_kf"].as<std::string>();
 
@@ -65,7 +69,8 @@ int main(int argc, const char* argv[]){
     
     // ********************************************************
     // Run L-InEKF    
-    std::cout << "Running L-InEKF" << std::endl;
+    if(verb)
+        std::cout << "Running L-InEKF" << std::endl;
     
     // Note that the estimates PoseEstimate is of type RandomVariable
     std::vector< PoseEstimate> X_kf_rv = GetSe2InekfEstimates( 
@@ -118,7 +123,8 @@ int main(int argc, const char* argv[]){
     // Building graph: 
     //      - Adding poses/vertices
     //      - Adding odometry measurements
-    std::cout << "Building factor graph..." << std::endl;
+    if(verb)
+        std::cout << "Building factor graph..." << std::endl;
 
     // Index that keeps track of the gps measurements
     size_t idx_gps = 0;
@@ -202,34 +208,37 @@ int main(int argc, const char* argv[]){
 
     // ********************************************************
     // Solving the optimization problem
-    std::cout << "Setting up optimization problem" << std::endl;
+    if(verb)
+        std::cout << "Setting up optimization problem" << std::endl;
 
 #ifndef NDEBUG
-    std::cout << "\tFixing first pose" << std::endl;
+    if(verb)
+        std::cout << "\tFixing first pose" << std::endl;
 #endif
     // fix the first robot pose to account for gauge freedom
     g2o::SE2::VertexSE2* firstRobotPose = dynamic_cast<g2o::SE2::VertexSE2*>(optimizer.vertex(0));
     firstRobotPose->setFixed( config["g2o"]["fix_x0"].as<bool>());
-    if(firstRobotPose->fixed()){
-        std::cout << "First pose is fixed. Make sure the prior is set to ground truth in order to get consistent estimates." << std::endl;
-    }
     // Note: if fixing pose, then use a ground truth prior!
-    std::cout << "First pose fixed: " << optimizer.vertex(0)->fixed() << std::endl;
+    if(verb)
+        std::cout << "First pose fixed: " << optimizer.vertex(0)->fixed() << std::endl;
 
     // Set verbosity
-    optimizer.setVerbose(true);
+    optimizer.setVerbose( verb);
 
-    std::cout << "Optimizing" << std::endl;
+    if(verb)
+        std::cout << "Optimizing" << std::endl;
     optimizer.initializeOptimization();
     // optimizer.computeInitialGuess();
-    optimizer.optimize( 3);
+    optimizer.optimize( config["g2o"]["max_iterations"].as<int>());
     // optimizer.computeBatchStatistics();
-    std::cout << "Done" << std::endl;
+    if(verb)
+        std::cout << "Done" << std::endl;
 
 
     // ********************************************************
     // Computing marginals    
-    std::cout << "Computing marginals" << std::endl;
+    if(verb)
+        std::cout << "Computing marginals" << std::endl;
     // Compute marginals
     auto vertices = optimizer.activeVertices();
     
@@ -238,11 +247,13 @@ int main(int argc, const char* argv[]){
     std::vector< PoseEstimate> X_batch_rv( K);
     // Progress bar
     // Show an example of an "empty" progress bar
-    std::cout << "|" << std::string( 61, ' ') << "|" << std::endl;
-    std::cout << "|" << std::flush;
+    if(verb){
+        std::cout << "|" << std::string( 61, ' ') << "|" << std::endl;
+        std::cout << "|" << std::flush;
+    }
     for( int k = 0; k < K; k++){
         // Output iteration
-        if( k % (K/60) == 0){
+        if( verb && k % (K/60) == 0){
             // std::cout << "\tMarginals: " << k << " of " << K << std::endl;
             std::cout << "=" << std::flush;
         }
@@ -289,14 +300,17 @@ int main(int argc, const char* argv[]){
         }
     }
     // End of progress bar
-    std::cout << "|" << std::endl;
+    if(verb)
+        std::cout << "|" << std::endl;
 
     // Exporting KF estimates
-    std::cout << "Exporting L-InEKF estimate to " << config["filename_kf"].as<std::string>() << std::endl;
+    if(verb)
+        std::cout << "Exporting L-InEKF estimate to " << config["filename_kf"].as<std::string>() << std::endl;
     RV::IO::write( X_kf_rv, config["filename_kf"].as<std::string>(), "X");
 
     // Exporting batch estimates
-    std::cout << "Exporting batch estimate to " << config["filename_batch"].as<std::string>() << std::endl;
+    if(verb)
+        std::cout << "Exporting batch estimate to " << config["filename_batch"].as<std::string>() << std::endl;
     RV::IO::write( X_batch_rv, config["filename_batch"].as<std::string>(), "X");
 
     // Free graph memory
