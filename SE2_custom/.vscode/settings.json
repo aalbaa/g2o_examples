@@ -1,7 +1,0 @@
-{
-    "cmake.debugConfig": {
-        "args": [
-            "/home/aa/Documents/Data/Data_generator/SE2/config.yml"
-        ]
-    }
-}
